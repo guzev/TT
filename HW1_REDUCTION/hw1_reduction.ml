@@ -1,8 +1,10 @@
 open Hw1;;
 
 module SS = Set.Make(String);;
+module SM = Map.Make(String);;
 
 let empty_set = SS.empty;;
+let empty_map = SM.empty;;
 
 (* For memoisation, specifically to insert reference to lambda term in several places in current lambda term *)
 type lambda_ref = Var_ref of string | App_ref of lambda_ref ref * lambda_ref ref | Abs_ref of string * lambda_ref ref;; 
@@ -50,6 +52,12 @@ let rec is_normal_form_ref lambda_expression_ref  = if is_term_beta_redex_ref la
 
 let new_number = ref 0;;
 
+let rename lambda_expression = let rec renaming lambda_expression map = match lambda_expression with
+	| Var x -> if SM.mem x map then Var (SM.find x map) else Var x
+	| App (x, y) -> App (renaming x map, renaming y map)
+	| Abs (x, y) -> new_number := (!new_number) + 1; let new_var = "new"^(string_of_int (!new_number)) in Abs (new_var, renaming y (SM.add x new_var map)) in
+	renaming lambda_expression empty_map;;
+
 let rec is_alpha_equivalent lambda1 lambda2 = match lambda1 with
 	| Var x -> (match lambda2 with
 		| Var y -> if x = y then true else false
@@ -80,12 +88,13 @@ let rec normal_beta_reduction_ref lambda_expression_ref = if is_normal_form_ref 
 	| Var_ref x -> ref (Var_ref x) 
 	| Abs_ref (x, y) -> ref (Abs_ref (x, normal_beta_reduction_ref y))
 	| App_ref (x, y) -> match !x with
-		| Abs_ref (o, z) -> subst_ref y z o
+		| Abs_ref (o, z) -> subst_ref y (ref_from_lambda (rename (lambda_from_ref z))) o
 		| _ -> if is_normal_form_ref x then (ref (App_ref (x, normal_beta_reduction_ref y))) else (ref (App_ref (normal_beta_reduction_ref x, y)));;
 
-let normal_beta_reduction lambda_expression = lambda_from_ref (normal_beta_reduction_ref (ref_from_lambda lambda_expression));;
+let normal_beta_reduction lambda_expression = lambda_from_ref (normal_beta_reduction_ref (ref_from_lambda (rename lambda_expression)));;
 	
 let rec reduce_to_normal_form lambda_expression = if is_normal_form lambda_expression then lambda_expression else reduce_to_normal_form (normal_beta_reduction lambda_expression);;
+
 
 print_string (string_of_bool (free_to_subst (Var "x") (Abs ("f", Abs ("x", App (Var "f", Var "x")))) "f"));;
 print_string "\n";;
@@ -109,4 +118,8 @@ print_string "\n";;
 print_string (string_of_lambda (normal_beta_reduction (lambda_of_string ("(\\x.x x) (\\y. y y)"))));;
 print_string "\n";;
 print_string (string_of_lambda ( reduce_to_normal_form (lambda_of_string ("(\\x.\\y.x) (a) ((\\x.x x) (\\x. x x))"))));;
+print_string "\n";;
+print_string (string_of_lambda (normal_beta_reduction (lambda_of_string ("(\\t.t t t) (\\f.\\x.f (f x))"))));;
+print_string "\n";;
+print_string (string_of_lambda (normal_beta_reduction (lambda_of_string ("(\\s.\\k.\\i.(((s ((s (k s)) ((s ((s (k s)) ((s (k k)) i))) (k ((s (k (s ((s (k s)) ((s (k (s (k (s ((s ((s ((s i) (k (k (k i))))) (k ((s (k k)) i)))) (k ((s ((s (k s)) ((s (k k)) i))) (k i))))))))) ((s ((s (k s)) ((s (k k)) ((s (k s)) ((s (k (s (k ((s ((s (k s)) ((s (k k)) ((s (k s)) ((s (k k)) i))))) (k ((s ((s (k s)) ((s (k k)) i))) (k i)))))))) ((s ((s (k s)) ((s (k k)) i))) (k i))))))) (k ((s (k k)) i)))))))) ((s (k k)) ((s ((s (k s)) ((s (k k)) i))) (k i)))))))) (k (k ((s ((s (k s)) ((s (k k)) i))) ((s ((s (k s)) ((s (k k)) i))) ((s ((s (k s)) ((s (k k)) i))) (k i))))))) ((s ((s ((s (k s)) ((s (k k)) i))) (k ((s i) i)))) ((s ((s (k s)) ((s (k k)) i))) (k ((s i) i))))) ((s ((s (k s)) ((s (k (s (k s)))) ((s ((s (k s)) ((s (k (s (k s)))) ((s (k (s (k k)))) ((s ((s (k s)) ((s (k k)) i))) (k ((s (k (s (k (s i))))) ((s (k (s (k k)))) ((s (k (s i))) ((s (k k)) i)))))))))) (k (k ((s (k k)) i))))))) (k (k (k i))))) (\\x.\\y.\\z.x z (y z)) (\\x.\\y.x) (\\x.x)"))));;
 print_string "\n";;
