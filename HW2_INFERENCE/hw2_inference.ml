@@ -143,7 +143,7 @@ let rec convert_list_to_hm l = match l with
 
 let rec convert_list_to_map l map = match l with
 	| [] -> map
-	| (x, y)::z -> M.add x y map;;
+	| (x, y)::z -> convert_list_to_map z (M.add x y map);;
 
 let rec implementation_algorithm_w lambda_expression context = match lambda_expression with
 	| HM_Var x -> (empty_map, clarification (M.find x context))
